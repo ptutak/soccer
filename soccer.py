@@ -14,15 +14,32 @@ def main(soccer_file: str):
     soccer_df = session.read.csv(soccer_file, sep=",", header=True, inferSchema=True)
     soccer_df.createOrReplaceTempView("soccer")
 
+    most_wins_per_decade_df = session.sql(
+        """
+            SELECT home_team, decade_year * 10 AS decade_year,
+            MAX(anon_1.win_number + COALESCE(anon_2.win_number, 0)) as max_win_number FROM
+            (select home_team, YEAR(match_date) / 10 as decade_year, COUNT(1) AS win_number
+            from soccer WHERE home_score > away_score GROUP BY home_team, YEAR(match_date) / 10) AS anon_1
+            JOIN
+            (SELECT away_team, YEAR(match_date) / 10 as decade_year, COUNT(1) AS win_number
+            FROM soccer WHERE away_score > home_score GROUP BY away_team, YEAR(match_date) / 10) AS anon_2
+            ON home_team = away_team and anon_1.decade_year = anon_2.decade_year
+            GROUP BY decade_year
+        """
+    )
+    most_wins_per_decade_df.show()
+
     most_wins_in_the_month_df = session.sql(
         """
-            SELECT home_team, MAX(anon_1.win_number + COALESCE(anon_2.win_number, 0)) as max_win_number FROM
+            SELECT home_team, anon_1.match_month as match_month, anon_1.match_year as match_year,
+            MAX(anon_1.win_number + COALESCE(anon_2.win_number, 0)) as max_win_number FROM
             (select home_team, MONTH(match_date) as match_month, YEAR(match_date) as match_year, COUNT(1) AS win_number
             from soccer WHERE home_score > away_score GROUP BY home_team, MONTH(match_date), YEAR(match_date)) AS anon_1
             JOIN
             (SELECT away_team, MONTH(match_date) as match_month, YEAR(match_date) as match_year, COUNT(1) AS win_number
             FROM soccer WHERE away_score > home_score GROUP BY away_team, MONTH(match_date), YEAR(match_date)) AS anon_2
             ON home_team = away_team and anon_1.match_month = anon_2.match_month and anon_1.match_year = anon_2.match_year
+            GROUP BY (match_month, match_year)
         """
     )
     most_wins_in_the_month_df.show()
