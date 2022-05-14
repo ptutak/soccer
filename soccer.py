@@ -9,7 +9,7 @@ from pyspark.sql import SparkSession
     help="soccer file",
     required=True,
 )
-def main(soccer_file: str):
+def main(soccer_file: str) -> None:
     session = SparkSession.builder.appName("soccer analysis").getOrCreate()
     soccer_df = session.read.csv(soccer_file, sep=",", header=True, inferSchema=True)
     soccer_df.createOrReplaceTempView("soccer")
@@ -44,6 +44,32 @@ def main(soccer_file: str):
     )
     most_wins_in_the_month_df.show()
 
+    most_pair_goals_df = session.sql(
+        """
+            SELECT anon_1.home_team as left_team, anon_1.away_team as right_team, max(left_goals + right_goals) as max_pair_goals FROM
+            (SELECT home_team , away_team, SUM(home_score) + SUM(away_score) AS left_goals
+            FROM soccer GROUP BY home_team, away_team) as anon_1
+            JOIN
+            (SELECT home_team, away_team, SUM(home_score) + SUM(away_score) AS right_goals
+            FROM soccer GROUP BY home_team, away_team) AS anon_2
+            ON anon_1.home_team = anon_2.away_team AND anon_1.away_team = anon_2.home_team
+        """
+    )
+    most_pair_goals_df.show()
+
+    most_draws_df = session.sql(
+        """
+            SELECT anon_1.home_team as left_team, anon_1.away_team as right_team, max(left_draws + right_draws) as max_pair_draws FROM
+            (SELECT home_team , away_team, COUNT(1) AS left_draws
+            FROM soccer WHERE home_score = away_score GROUP BY home_team, away_team) as anon_1
+            JOIN
+            (SELECT home_team, away_team, COUNT(1) AS right_draws
+            FROM soccer WHERE home_score = away_score GROUP BY home_team, away_team) AS anon_2
+            ON anon_1.home_team = anon_2.away_team AND anon_1.away_team = anon_2.home_team
+        """
+    )
+    most_draws_df.show()
+
     home_win_rate_df = session.sql(
         """
             SELECT home_team, MAX(home_win_rate) FROM
@@ -67,8 +93,6 @@ def main(soccer_file: str):
         """
     )
     away_win_rate_df.show()
-
-
 
 
 if __name__ == "__main__":
