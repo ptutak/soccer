@@ -12,7 +12,7 @@ from pyspark.sql import SparkSession
 def main(soccer_file: str) -> None:
     session = SparkSession.builder.appName("soccer analysis").getOrCreate()
     soccer_df = session.read.csv(soccer_file, sep=",", header=True, inferSchema=True)
-    soccer_df.createOrReplaceTempView("soccer")
+    soccer_df.withColumnRenamed("date", "match_date").createOrReplaceTempView("soccer")
 
     most_wins_per_decade_df = session.sql(
         """
